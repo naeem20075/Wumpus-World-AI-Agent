@@ -1,8 +1,3 @@
-Got you — I’ll upgrade your README into a **visually rich, CSS-styled GitHub README** (badges, colors, sections, highlights).
-GitHub README doesn’t support full CSS files, but we can **simulate styling using badges, emojis, tables, and HTML blocks** 🔥
-
----
-
 # 🧠 Wumpus World — AI Logic Agent
 
 <h3 align="center">🎓 University-Level Web-Based AI Simulation</h3>
