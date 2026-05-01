@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wumpus World AI Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: #f8f9fb;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: #fff;
+      border-bottom: 2px solid #e8eaf0;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .topbar h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1a1a2e;
+    }
+
+    .topbar h1 span { color: #4f7df3; }
+
+    .tag {
+      background: #eef2ff;
+      color: #4f7df3;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .status-pill {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #888;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+    .dot.alive  { background: #34c759; }
+    .dot.dead   { background: #ff3b30; }
+    .dot.won    { background: #ff9500; }
+    .dot.stuck  { background: #af52de; }
+
+    /* ── CONTROLS ── */
+    .controls {
+      background: #fff;
+      border-bottom: 1px solid #e8eaf0;
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #555;
+    }
+
+    /* Hide number arrows */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+    .controls input {
+      width: 54px;
+      height: 36px;
+      border: 1.5px solid #dde1ee;
+      border-radius: 8px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      color: #1a1a2e;
+      background: #f8f9fb;
+      outline: none;
+    }
+    .controls input:focus { border-color: #4f7df3; background: #fff; }
+
+    .divider { width: 1px; height: 28px; background: #e8eaf0; }
+
+    .btn {
+      height: 36px;
+      padding: 0 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+      background: #e8eaf0;
+      color: #444;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-blue  { background: #4f7df3; color: #fff; }
+    .btn-green { background: #34c759; color: #fff; }
+    .btn-red   { background: #ff3b30; color: #fff; }
+
+    /* ── PAGE BODY ── */
+    .page {
+      display: flex;
+      gap: 20px;
+      padding: 24px 32px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    /* ── GRID AREA ── */
+    .grid-section { display: flex; flex-direction: column; gap: 14px; }
+
+    .grid-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .grid-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1.5px solid #e8eaf0;
+      padding: 16px;
+      display: inline-flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #world-grid {
+      display: grid;
+      gap: 4px;
+    }
+
+    /* CELLS */
+    .cell {
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      border: 1.5px solid #e8eaf0;
+      background: #f8f9fb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      position: relative;
+      transition: transform .1s;
+    }
+    .cell:hover { transform: scale(1.04); z-index: 2; }
+
+    .cell-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #ccc;
+    }
+
+    .cell-letter {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ddd;
+      line-height: 1;
+    }
+
+    .cell-pos {
+      position: absolute;
+      bottom: 3px;
+      right: 5px;
+      font-size: 8px;
+      color: rgba(0,0,0,0.15);
+      font-weight: 600;
+    }
+
+    /* Cell states */
+    .c-agent  { background: #eef2ff; border-color: #4f7df3; }
+    .c-agent  .cell-label { color: #4f7df3; }
+    .c-agent  .cell-letter { color: #4f7df3; }
+
+    .c-visited  { background: #f0fdf4; border-color: #86efac; }
+    .c-visited  .cell-label { color: #22c55e; }
+    .c-visited  .cell-letter { color: #22c55e; }
+
+    .c-safe   { background: #f0fdf4; border: 1.5px dashed #86efac; }
+    .c-safe   .cell-label { color: #86efac; }
+    .c-safe   .cell-letter { color: #86efac; }
+
+    .c-hazard { background: #fff5f5; border: 1.5px dashed #fca5a5; }
+    .c-hazard .cell-label { color: #f87171; }
+    .c-hazard .cell-letter { color: #fca5a5; }
+
+    .c-pit    { background: #fff1f2; border-color: #ff3b30; }
+    .c-pit    .cell-label { color: #ff3b30; }
+    .c-pit    .cell-letter { color: #ff3b30; }
+
+    .c-wumpus { background: #fdf4ff; border-color: #c084fc; }
+    .c-wumpus .cell-label { color: #a855f7; }
+    .c-wumpus .cell-letter { color: #a855f7; }
+
+    .c-gold   { background: #fffbeb; border-color: #fcd34d; }
+    .c-gold   .cell-label { color: #d97706; }
+    .c-gold   .cell-letter { color: #d97706; }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
+
+    .leg {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+    }
+
+    .leg-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1.5px solid;
+      flex-shrink: 0;
+    }
+
+    /* ── RIGHT PANEL ── */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 240px;
+      flex: 1;
+      max-width: 280px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1.5px solid #e8eaf0;
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+      margin-bottom: 12px;
+    }
+
+    /* Outcome */
+    .outcome {
+      display: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .outcome.show { display: block; }
+    .outcome.won   { background: #fffbeb; color: #d97706; border: 1.5px solid #fcd34d; }
+    .outcome.dead  { background: #fff1f2; color: #ff3b30; border: 1.5px solid #fca5a5; }
+    .outcome.stuck { background: #fdf4ff; color: #a855f7; border: 1.5px solid #c084fc; }
+
+    /* Position */
+    .pos-box {
+      background: #1a1a2e;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .pos-xy {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+    .pos-note {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* Metrics */
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .metric {
+      background: #f8f9fb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      border-left: 3px solid #e8eaf0;
+    }
+    .metric.blue   { border-left-color: #4f7df3; }
+    .metric.green  { border-left-color: #34c759; }
+    .metric.orange { border-left-color: #ff9500; }
+    .metric.purple { border-left-color: #af52de; }
+
+    .metric-name {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+    .metric-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1a1a2e;
+      line-height: 1;
+    }
+
+    /* Percepts */
+    .perc {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #f8f9fb;
+      border: 1.5px solid #e8eaf0;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .perc:last-child { margin-bottom: 0; }
+    .perc-name { color: #555; }
+    .perc-status {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #e8eaf0;
+      color: #aaa;
+    }
+
+    .perc.on-breeze  { background: #eef2ff; border-color: #a5b4fc; }
+    .perc.on-breeze  .perc-name   { color: #4f7df3; }
+    .perc.on-breeze  .perc-status { background: #4f7df3; color: #fff; }
+
+    .perc.on-stench  { background: #fdf4ff; border-color: #c084fc; }
+    .perc.on-stench  .perc-name   { color: #a855f7; }
+    .perc.on-stench  .perc-status { background: #a855f7; color: #fff; }
+
+    .perc.on-glitter { background: #fffbeb; border-color: #fcd34d; }
+    .perc.on-glitter .perc-name   { color: #d97706; }
+    .perc.on-glitter .perc-status { background: #d97706; color: #fff; }
+
+    /* Log */
+    .log-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-list::-webkit-scrollbar { width: 3px; }
+    .log-list::-webkit-scrollbar-thumb { background: #e8eaf0; border-radius: 3px; }
+
+    .log-row {
+      font-size: 11px;
+      color: #888;
+      padding: 4px 8px;
+      background: #f8f9fb;
+      border-radius: 4px;
+      border-left: 2px solid #e8eaf0;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+    .log-row:first-child { border-left-color: #4f7df3; color: #444; }
+
+    /* Idle screen */
+    .idle-screen {
+      padding: 48px 32px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .idle-grid-preview {
+      display: grid;
+      grid-template-columns: repeat(4, 18px);
+      grid-template-rows: repeat(4, 18px);
+      gap: 3px;
+      margin-bottom: 6px;
+    }
+
+    .igp-cell {
+      border-radius: 3px;
+      background: #e8eaf0;
+    }
+    .igp-cell.a { background: #4f7df3; }
+    .igp-cell.h { background: #fca5a5; }
+    .igp-cell.s { background: #86efac; }
+
+    .idle-screen h2 {
+      font-size: 17px;
+      font-weight: 800;
+      color: #1a1a2e;
+    }
+
+    .idle-screen p {
+      font-size: 13px;
+      color: #888;
+      line-height: 1.7;
+      max-width: 280px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>Wumpus <span>World</span></h1>
+  <div class="tag">AI Logic Agent</div>
+  <div class="status-pill">
+    <div class="dot" id="s-dot"></div>
+    <span id="s-text">Idle</span>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <label>Rows</label>
+  <input type="number" id="inp-rows" value="4" min="2" max="8" />
+  <label>Cols</label>
+  <input type="number" id="inp-cols" value="4" min="2" max="8" />
+  <div class="divider"></div>
+  <button class="btn btn-blue"  onclick="startGame()">Start</button>
+  <button class="btn"           id="btn-step" onclick="doStep()" disabled>Next Step</button>
+  <button class="btn btn-green" id="btn-auto" onclick="toggleAuto()" disabled>Auto Play</button>
+  <button class="btn btn-red"   id="btn-stop" onclick="stopAuto()" style="display:none">Stop</button>
+</div>
+
+<!-- PAGE BODY -->
+<div class="page">
+
+  <!-- GRID SECTION -->
+  <div class="grid-section">
+    <div class="grid-label">World Grid</div>
+    <div class="grid-card">
+      <div id="world-grid">
+        <div class="idle-screen">
+          <div class="idle-grid-preview">
+            <div class="igp-cell a"></div><div class="igp-cell s"></div><div class="igp-cell"></div><div class="igp-cell h"></div>
+            <div class="igp-cell s"></div><div class="igp-cell s"></div><div class="igp-cell h"></div><div class="igp-cell"></div>
+            <div class="igp-cell"></div><div class="igp-cell h"></div><div class="igp-cell s"></div><div class="igp-cell s"></div>
+            <div class="igp-cell h"></div><div class="igp-cell"></div><div class="igp-cell s"></div><div class="igp-cell"></div>
+          </div>
+          <h2>No World Yet</h2>
+          <p>Set the grid size and press Start. The agent will use logic to find safe cells.</p>
+        </div>
+      </div>
+
+      <div class="legend" id="legend" style="display:none">
+        <div class="leg"><div class="leg-box" style="background:#eef2ff;border-color:#4f7df3"></div> Agent</div>
+        <div class="leg"><div class="leg-box" style="background:#f0fdf4;border-color:#86efac"></div> Visited</div>
+        <div class="leg"><div class="leg-box" style="background:#f0fdf4;border-color:#86efac;border-style:dashed"></div> KB Safe</div>
+        <div class="leg"><div class="leg-box" style="background:#f8f9fb;border-color:#e8eaf0"></div> Unknown</div>
+        <div class="leg"><div class="leg-box" style="background:#fff5f5;border-color:#fca5a5;border-style:dashed"></div> KB Hazard</div>
+        <div class="leg"><div class="leg-box" style="background:#fff1f2;border-color:#ff3b30"></div> Pit</div>
+        <div class="leg"><div class="leg-box" style="background:#fdf4ff;border-color:#c084fc"></div> Wumpus</div>
+        <div class="leg"><div class="leg-box" style="background:#fffbeb;border-color:#fcd34d"></div> Gold</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel">
+
+    <!-- Outcome -->
+    <div class="outcome" id="outcome"></div>
+
+    <!-- Position -->
+    <div class="card">
+      <div class="card-title">Agent Position</div>
+      <div class="pos-box">
+        <div class="pos-xy" id="pos-xy">--</div>
+        <div class="pos-note" id="pos-note">Waiting to start</div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="card-title">Stats</div>
+      <div class="metrics">
+        <div class="metric purple">
+          <div class="metric-name">Inferences</div>
+          <div class="metric-val" id="m-inf">-</div>
+        </div>
+        <div class="metric blue">
+          <div class="metric-name">KB Size</div>
+          <div class="metric-val" id="m-kb">-</div>
+        </div>
+        <div class="metric green">
+          <div class="metric-name">Steps</div>
+          <div class="metric-val" id="m-steps">-</div>
+        </div>
+        <div class="metric orange">
+          <div class="metric-name">Visited</div>
+          <div class="metric-val" id="m-vis">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Percepts -->
+    <div class="card">
+      <div class="card-title">Percepts</div>
+      <div class="perc" id="p-breeze"><span class="perc-name">Breeze</span><span class="perc-status" id="ps-breeze">Off</span></div>
+      <div class="perc" id="p-stench"><span class="perc-name">Stench</span><span class="perc-status" id="ps-stench">Off</span></div>
+      <div class="perc" id="p-glitter"><span class="perc-name">Glitter</span><span class="perc-status" id="ps-glitter">Off</span></div>
+    </div>
+
+    <!-- Log -->
+    <div class="card">
+      <div class="card-title">Log</div>
+      <div class="log-list" id="log-list">
+        <div class="log-row">Waiting for game to start...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let running=false, timer=null, truth=null, busy=false;
+
+async function startGame(){
+  stopAuto(); truth=null;
+  const r=+document.getElementById('inp-rows').value;
+  const c=+document.getElementById('inp-cols').value;
+  if(r<2||r>8||c<2||c>8){alert('Size must be between 2 and 8.');return;}
+  const d=await fetch('/start/'+r+'/'+c).then(x=>x.json());
+  if(d.status!=='ok')return;
+  running=true;
+  document.getElementById('btn-step').disabled=false;
+  document.getElementById('btn-auto').disabled=false;
+  document.getElementById('outcome').className='outcome';
+  setDot('alive','Running');
+  setVal('m-inf','0');setVal('m-kb','0');setVal('m-steps','0');setVal('m-vis','0');
+  setPercepts({});
+  document.getElementById('pos-xy').textContent='(0, 0)';
+  document.getElementById('pos-note').textContent='Start — always safe';
+  document.getElementById('legend').style.display='flex';
+  buildEmpty(r,c);
+  setLog(['Game started. Agent at (0, 0). Press Next Step or Auto Play.']);
+}
+
+async function doStep(){
+  if(!running||busy)return;
+  busy=true;
+  const stepBtn=document.getElementById('btn-step');
+  const autoBtn=document.getElementById('btn-auto');
+  const orig=stepBtn.textContent;
+  stepBtn.textContent='Working...';
+  stepBtn.disabled=true;
+  autoBtn.disabled=true;
+  try{
+    const d=await fetch('/step').then(x=>x.json());
+    if(d.grid_truth)truth=d.grid_truth;
+    update(d);
+    const s=d.agent.status;
+    if(s!=='alive'){
+      running=false;stopAuto();
+      stepBtn.disabled=true;
+      const msgs={won:'Victory! The agent found the gold.',dead_pit:'Game over. Fell into a pit.',dead_wumpus:'Game over. Eaten by the Wumpus.',stuck:'Agent is stuck. No safe moves left.'};
+      const types={won:'won',dead_pit:'dead',dead_wumpus:'dead',stuck:'stuck'};
+      const el=document.getElementById('outcome');
+      el.textContent=msgs[s]||'Game ended.';
+      el.className='outcome show '+(types[s]||'dead');
+      setDot(types[s]||'dead', s==='won'?'Won':s==='stuck'?'Stuck':'Dead');
+    } else {
+      stepBtn.textContent=orig;
+      stepBtn.disabled=false;
+      if(!timer)autoBtn.disabled=false;
+    }
+  }catch(e){
+    stepBtn.textContent='Error - Retry';
+    stepBtn.disabled=false;
+    if(!timer)autoBtn.disabled=false;
+  }
+  busy=false;
+}
+
+function toggleAuto(){
+  if(timer){stopAuto();return;}
+  document.getElementById('btn-auto').style.display='none';
+  document.getElementById('btn-stop').style.display='inline-flex';
+  timer=setInterval(async()=>{if(!running){stopAuto();return;}await doStep();},700);
+}
+
+function stopAuto(){
+  clearInterval(timer);timer=null;
+  document.getElementById('btn-auto').style.display='inline-flex';
+  document.getElementById('btn-stop').style.display='none';
+}
+
+function update(data){
+  const ag=data.agent;const[ax,ay]=ag.pos;const s=ag.status;
+  setVal('m-inf',data.inference_steps.toLocaleString());
+  setVal('m-kb',data.kb_size.toLocaleString());
+  setVal('m-steps',ag.steps.toLocaleString());
+  setVal('m-vis',ag.visited.length.toLocaleString());
+  setPercepts(data.percepts||{});
+  document.getElementById('pos-xy').textContent='('+ax+', '+ay+')';
+  document.getElementById('pos-note').textContent=
+    s==='won'?'Gold found!':s.startsWith('dead')?'Dead':s==='stuck'?'No safe moves':'Exploring...';
+  buildGrid(data.rows,data.cols,ag,data.inferred_safe||[],data.inferred_unsafe||[],truth);
+  setLog(ag.log||[]);
+}
+
+function buildEmpty(r,c){
+  const el=document.getElementById('world-grid');
+  el.innerHTML='';el.style.gridTemplateColumns='repeat('+c+', 72px)';
+  for(let i=0;i<r;i++)for(let j=0;j<c;j++)el.appendChild(mkCell(i,j,'','?','?'));
+}
+
+function buildGrid(r,c,ag,iSafe,iUnsafe,truth){
+  const el=document.getElementById('world-grid');
+  el.innerHTML='';el.style.gridTemplateColumns='repeat('+c+', 72px)';
+  const[ax,ay]=ag.pos;
+  const V=new Set(ag.visited.map(p=>p[0]+','+p[1]));
+  const S=new Set(iSafe.map(p=>p[0]+','+p[1]));
+  const U=new Set(iUnsafe.map(p=>p[0]+','+p[1]));
+  for(let i=0;i<r;i++){
+    for(let j=0;j<c;j++){
+      const k=i+','+j;const isA=i===ax&&j===ay;
+      const t=truth?truth[i][j]:null;
+      let cls,ltr,lbl;
+      if(isA){cls='agent';ltr='A';lbl='Agent';}
+      else if(truth){
+        if(t.pit){cls='pit';ltr='P';lbl='Pit';}
+        else if(t.wumpus){cls='wumpus';ltr='W';lbl='Wumpus';}
+        else if(t.gold){cls='gold';ltr='G';lbl='Gold';}
+        else if(V.has(k)){cls='visited';ltr='+';lbl='Safe';}
+        else{cls='';ltr='?';lbl='?';}
+      } else if(V.has(k)){cls='visited';ltr='+';lbl='Safe';}
+      else if(U.has(k)){cls='hazard';ltr='!';lbl='Hazard';}
+      else if(S.has(k)){cls='safe';ltr='~';lbl='Safe';}
+      else{cls='';ltr='?';lbl='?';}
+      el.appendChild(mkCell(i,j,cls,ltr,lbl));
+    }
+  }
+}
+
+function mkCell(i,j,state,ltr,lbl){
+  const d=document.createElement('div');
+  d.className='cell'+(state?' c-'+state:'');
+  d.innerHTML='<div class="cell-label">'+lbl+'</div><div class="cell-letter">'+ltr+'</div><div class="cell-pos">'+i+','+j+'</div>';
+  return d;
+}
+
+function setPercepts(p){
+  const set=(rowId,statusId,cls,on)=>{
+    document.getElementById(rowId).className='perc'+(on?' on-'+cls:'');
+    document.getElementById(statusId).textContent=on?'On':'Off';
+  };
+  set('p-breeze','ps-breeze','breeze',p.breeze);
+  set('p-stench','ps-stench','stench',p.stench);
+  set('p-glitter','ps-glitter','glitter',p.glitter);
+}
+
+function setVal(id,v){document.getElementById(id).textContent=v;}
+function setDot(cls,label){
+  document.getElementById('s-dot').className='dot'+(cls?' '+cls:'');
+  document.getElementById('s-text').textContent=label;
+}
+function setLog(lines){
+  document.getElementById('log-list').innerHTML=lines.map(l=>'<div class="log-row">'+l+'</div>').join('');
+}
+</script>
+</body>
+</html>
